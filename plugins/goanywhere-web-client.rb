@@ -10,7 +10,7 @@ Plugin.define do
                 "Francesco Pavanello <frapava98@gmail.com>", # v0.1 # 2025-10-01 # Created plugin
         ]
         version "0.1"
-        description "Fortra GoAnywhere is a Managed File Transfer (MFT) solution designed to help organizations securely and efficiently exchange data with trading partners, employees, and internal systems>
+        description "Fortra GoAnywhere is a Managed File Transfer (MFT) solution designed to help organizations securely and efficiently exchange data with trading partners, employees, and internal systems"
         website "https://www.goanywhere.com/"
 
         # This is the matches array.

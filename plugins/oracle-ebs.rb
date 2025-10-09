@@ -34,7 +34,7 @@ Plugin.define do
         { :regexp => /\/OA_HTML\/[^\s'"]+/, :certainty => 70 },
 
         # Match Location header
-        { :search=>"headers[location]", :regexp => /\/OA_HTML\//, :certainty => 95 }
+        { :search=>"headers[location]", :regexp => /\/OA_HTML\//, :certainty => 95 },
 
         # Match redirect via JavaScript
         { :regexp => /document\.location\.replace\(['"]http[^'"]*\/OA_HTML\/[^'"]+['"]\)/, :certainty => 90 },
