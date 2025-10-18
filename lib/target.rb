@@ -275,6 +275,22 @@ class Target
       raise err
     end
 
+    # Merge cookies from jar with user-provided cookies
+    if defined?($COOKIE_JAR) && $COOKIE_JAR && (!defined?($NO_COOKIES) || !$NO_COOKIES)
+      jar_cookies = $COOKIE_JAR.cookies_for_request(@uri.to_s)
+      
+      if jar_cookies
+        existing_cookies = $CUSTOM_HEADERS['Cookie']
+        
+        if existing_cookies && !existing_cookies.empty?
+          # Combine: user cookies take precedence
+          $CUSTOM_HEADERS['Cookie'] = "#{existing_cookies}; #{jar_cookies}"
+        else
+          $CUSTOM_HEADERS['Cookie'] = jar_cookies
+        end
+      end
+    end
+
     begin
       if $USE_PROXY == true
         http = ExtendedHTTP::Proxy($PROXY_HOST, $PROXY_PORT, $PROXY_USER, $PROXY_PASS).new(@uri.host, @uri.port)
@@ -310,6 +326,32 @@ class Target
 
       req.basic_auth $BASIC_AUTH_USER, $BASIC_AUTH_PASS if $BASIC_AUTH_USER
 
+      # Log HTTP request details for verbose level 2 (-vv)
+      if $verbose >= 2
+        puts "\n" + "=" * 60
+        puts "HTTP REQUEST"
+        puts "=" * 60
+        puts "#{options[:method]} #{getthis} HTTP/1.1"
+        puts "Host: #{@uri.host}#{@uri.port != (@uri.scheme == 'https' ? 443 : 80) ? ":#{@uri.port}" : ''}"
+        
+        # Show custom headers
+        $CUSTOM_HEADERS.each do |key, value|
+          puts "#{key}: #{value}"
+        end
+        
+        # Show basic auth header if present
+        if $BASIC_AUTH_USER
+          puts "Authorization: Basic [REDACTED]"
+        end
+        
+        # Show POST data if present
+        if options[:method] == 'POST' && options[:data]
+          puts "\n[POST Data]"
+          puts options[:data].inspect
+        end
+        puts "=" * 60
+      end
+
       res = http.request(req)
       @raw_headers = http.raw.join("\n")
       @headers = {}
@@ -326,7 +368,33 @@ class Target
 
       @headers['set-cookie'] = res.get_fields('set-cookie').join("\n") unless @headers['set-cookie'].nil?
 
+      # Extract cookies to @cookies array (existing functionality)
+      @cookies = res.get_fields('set-cookie') || []
+
+      # Store cookies from response in the cookie jar
+      if defined?($COOKIE_JAR) && $COOKIE_JAR && (!defined?($NO_COOKIES) || !$NO_COOKIES)
+        if @headers['set-cookie']
+          $COOKIE_JAR.add_cookies(@headers['set-cookie'], @uri.to_s)
+          # Display cookie jar contents in debug mode
+          $COOKIE_JAR.display_cookies if defined?(debug) && $verbose && $verbose > 2
+        end
+      end
+
       @status = res.code.to_i
+      
+      # Log HTTP response details for verbose level 2 (-vv)
+      if $verbose >= 2
+        puts "\nHTTP RESPONSE"
+        puts "=" * 60
+        puts "HTTP/1.1 #{@status} #{res.message}"
+        res.each_header do |key, value|
+          puts "#{key}: #{value}"
+        end
+        puts "=" * 60
+        puts "Response body length: #{@body ? @body.length : 0} bytes"
+        puts "=" * 60 + "\n"
+      end
+      
       puts @uri.to_s + " [#{status}]" if $verbose > 1
 
     rescue StandardError => err

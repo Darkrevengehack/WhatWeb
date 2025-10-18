@@ -121,6 +121,18 @@ AUTHENTICATION:
   --user, -u=<user:password> HTTP basic authentication.
   --cookie, -c=COOKIES  Provide cookies, e.g. 'name=value; name2=value2'.
   --cookiejar=FILE      Read cookies from a file.
+  --no-cookies          Disable automatic cookie handling (improves performance 
+                        with high thread counts).
+
+### Cookie Handling
+
+WhatWeb automatically handles cookies across redirects by default. This improves fingerprinting accuracy on sites requiring session management.
+
+- `--cookie, -c=COOKIES`  - Set initial cookies manually
+- `--cookie-jar=FILE`  - Load cookies from file  
+- `--no-cookies`  - Disable automatic cookie handling
+
+**Performance Note:** With high thread counts (>100), cookie handling may impact performance. Use `--no-cookies` for maximum speed on large scans.
 
 PROXY:
   --proxy           <hostname[:port]> Set proxy hostname and port.
@@ -430,6 +442,8 @@ Browse the wiki for more documentation and advanced usage techniques.
 
 ## Release History
 
+- Version 0.6.3 Released October 18, 2025
+- Version 0.6.2 Released August 25, 2025
 - Version 0.6.1 Released July 30th, 2025
 - Version 0.5.4 Released December 14th, 2020
 - Version 0.5.3 Released October 1st, 2020

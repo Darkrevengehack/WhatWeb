@@ -87,6 +87,7 @@ AUTHENTICATION:
   --user, -u=<user:password>\tHTTP basic authentication.
   --cookie, -c=COOKIES\t\tUse cookies, e.g. 'name=value; name2=value2'.
   --cookie-jar=FILE\t\tRead cookies from a file.
+  --no-cookies\t\t\tDisable automatic cookie handling (improves performance with high thread counts).
 
 PROXY:
   --proxy\t\t\t<hostname[:port]> Set proxy hostname and port.
@@ -251,17 +252,31 @@ else
   $semaphore.synchronize(&work)
 end
 
-#
-# Display error messages
-#
-def error(s)
-  return if $NO_ERRORS
+# Load message handling functions
+require_relative 'lib/messages'
 
-  $semaphore.reentrant_synchronize do
-    # TODO: make use_color smart, so it detects a tty
-    STDERR.puts((($use_colour == 'auto') || ($use_colour == 'always')) ? red(s) : s)
-    STDERR.flush
-    $LOG_ERRORS.out(s) if $LOG_ERRORS
+#
+# Check for cookie performance warnings based on thread count
+#
+def check_cookie_performance_warning(max_threads)
+  return if $NO_COOKIES
+  
+  case max_threads
+  when 0..50
+    # No warning - should work fine
+  when 51..100
+    notice "💡 Notice: With #{max_threads} threads, consider --no-cookies if scan performance is slow"
+    
+  when 101..200
+    warning "⚠️  Performance Warning:"
+    warning "   High thread count (#{max_threads}) may cause cookie jar bottlenecks"
+    warning "   For optimal performance: whatweb --no-cookies [your other options]"
+    
+  when 201..Float::INFINITY
+    error "🚨 Performance Alert:"
+    error "   Very high thread count (#{max_threads}) will cause severe cookie contention"
+    error "   STRONGLY RECOMMENDED: Add --no-cookies to prevent major slowdowns"
+    error "   Command: whatweb --max-threads #{max_threads} --no-cookies [other options]"
   end
 end
 
@@ -339,6 +354,7 @@ opts = GetoptLong.new(
   ['--header', '-H', GetoptLong::REQUIRED_ARGUMENT],
   ['--cookie', '-c', GetoptLong::REQUIRED_ARGUMENT],
   ['--cookie-jar', GetoptLong::REQUIRED_ARGUMENT],
+  ['--no-cookies', GetoptLong::NO_ARGUMENT],
   ['--user', '-u', GetoptLong::REQUIRED_ARGUMENT],
   ['--wait', GetoptLong::REQUIRED_ARGUMENT],
   ['--debug', GetoptLong::NO_ARGUMENT],
@@ -515,6 +531,8 @@ begin
       rescue
         raise("Could not read cookies from #{arg}.")
       end
+    when '--no-cookies'
+      $NO_COOKIES = true
     when '-u', '--user'
       unless arg.include?(':')
         raise("Incorrect credentials format.")
@@ -588,6 +606,15 @@ logging_list << LoggingElastic.new(elastic) if elastic[:use_elastic_log]
 $CUSTOM_HEADERS['User-Agent'] = $USER_AGENT unless $CUSTOM_HEADERS['User-Agent']
 $CUSTOM_HEADERS.delete_if { |_k, v| v == '' }
 
+## Cookie Jar Initialization
+unless $NO_COOKIES
+  require_relative 'lib/simple_cookie_jar'
+  $COOKIE_JAR = SimpleCookieJar.new(max_domains: 10_000)
+  
+  # Warn about performance implications
+  check_cookie_performance_warning(max_threads)
+end
+
 urls = ARGV
 
 
@@ -635,5 +662,17 @@ end
 # close down logging and plugins
 logging_list.each(&:close)
 Plugin.shutdown_all
+
+# Display cookie jar statistics if enabled and cookies were used
+if defined?($COOKIE_JAR) && $COOKIE_JAR && (!defined?($NO_COOKIES) || !$NO_COOKIES) && $verbose && $verbose > 1
+  stats = $COOKIE_JAR.stats
+  notice "Cookie jar statistics:"
+  notice "  Domains: #{stats[:domains]}/#{stats[:max_domains]}"
+  notice "  Requests processed: #{stats[:requests_processed]}"
+  notice "  Memory estimate: #{stats[:memory_estimate_kb]}KB"
+  
+  # Show actual cookies in debug mode
+  $COOKIE_JAR.display_cookies if $verbose > 2
+end
 
 # pp $PLUGIN_TIMES.sort_by {|x,y|y }
