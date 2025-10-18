@@ -81,32 +81,47 @@ class ExtendedHTTP < Net::HTTP #:nodoc:
     s.setsockopt(Socket::IPPROTO_TCP, Socket::TCP_NODELAY, 1)
     D 'opened'
 
-    if use_ssl?
-      @ssl_context = OpenSSL::SSL::SSLContext.new
+    # Handle HTTPS through proxy - CONNECT must happen before SSL
+    if use_ssl? && proxy?
+      # First create a plain socket connection to proxy
+      @socket = BufferedIO.new(s)
+      @socket.read_timeout = @read_timeout
+      @socket.continue_timeout = @continue_timeout
+      @socket.debug_output = @debug_output
 
-      # Set SSL options for maximum compatibility with all servers
+      # Send CONNECT request through plain socket
+      buf = "CONNECT #{@address}:#{@port} HTTP/#{HTTPVersion}\r\n"
+      buf << "Host: #{@address}:#{@port}\r\n"
+
+      if proxy_user
+        credential = ["#{proxy_user}:#{proxy_pass}"].pack('m')
+        credential.delete!("\r\n")
+        buf << "Proxy-Authorization: Basic #{credential}\r\n"
+      end
+
+      buf << "\r\n"
+      @socket.write(buf)
+
+      # Read and validate CONNECT response
+      response, raw = ExtendedHTTPResponse.read_new(@socket)
+      @raw << raw
+      response.value  # This will raise an exception if not 2xx status
+
+      # Now establish SSL over the tunneled connection
+      @ssl_context = OpenSSL::SSL::SSLContext.new
       @ssl_context.verify_mode = OpenSSL::SSL::VERIFY_NONE
       
       # Configure SSL context for maximum compatibility with ALL protocols
       begin
-        # First try to enable all protocols by removing restrictions
         if @ssl_context.respond_to?(:ssl_version=)
-          # SSLv23_method allows for negotiation of ANY supported SSL/TLS version
-          # including SSLv2, SSLv3, TLS 1.0, and up if available
           @ssl_context.ssl_version = :SSLv23_method rescue nil
-          
-          # Fall back to TLS_method if SSLv23_method isn't available
           @ssl_context.ssl_version = :TLS_method rescue nil
         end
         
-        # Clear any minimum version restrictions to allow legacy protocols
         if @ssl_context.respond_to?(:min_version=)
           begin
-            # Set to lowest possible to allow SSLv2/SSLv3 where available
             @ssl_context.min_version = 0
           rescue
-            # Some Ruby versions may have different ways to handle this
-            # Try alternate approach for legacy support
             if defined?(OpenSSL::SSL::SSL2_VERSION)
               @ssl_context.min_version = OpenSSL::SSL::SSL2_VERSION rescue nil
             elsif defined?(OpenSSL::SSL::SSL3_VERSION)
@@ -115,7 +130,6 @@ class ExtendedHTTP < Net::HTTP #:nodoc:
           end
         end
         
-        # Try to explicitly enable SSLv2 and SSLv3 through options if available
         @ssl_context.options &= ~OpenSSL::SSL::OP_NO_SSLv2 if defined?(OpenSSL::SSL::OP_NO_SSLv2)
         @ssl_context.options &= ~OpenSSL::SSL::OP_NO_SSLv3 if defined?(OpenSSL::SSL::OP_NO_SSLv3)
         @ssl_context.options &= ~OpenSSL::SSL::OP_NO_TLSv1 if defined?(OpenSSL::SSL::OP_NO_TLSv1)
@@ -123,61 +137,98 @@ class ExtendedHTTP < Net::HTTP #:nodoc:
         # Ignore errors from unsupported SSL options
       end
 
-
-#      pry.binding
+      D "starting SSL for #{@address}:#{@port}..."
+      ssl_socket = OpenSSL::SSL::SSLSocket.new(@socket.io, @ssl_context)
+      ssl_socket.sync_close = true
       
+      # Server Name Indication (SNI) RFC 3546
+      ssl_socket.hostname = @address if ssl_socket.respond_to? :hostname=
+      
+      begin
+        Timeout.timeout(@open_timeout, Net::OpenTimeout) { ssl_socket.connect }
+        if @ssl_context.verify_mode != OpenSSL::SSL::VERIFY_NONE
+          ssl_socket.post_connection_check(@address)
+        end
+        @ssl_session = ssl_socket.session
+      rescue => exception
+        D "Conn close because of SSL connect error #{exception}"
+        @socket.close if @socket && !@socket.closed?
+        raise exception
+      end
+
+      # Replace the socket with SSL socket
+      @socket = BufferedIO.new(ssl_socket)
+      @socket.read_timeout = @read_timeout
+      @socket.continue_timeout = @continue_timeout
+      @socket.debug_output = @debug_output
+      D 'SSL established'
+
+    elsif use_ssl?
+      # Direct SSL connection (no proxy)
+      @ssl_context = OpenSSL::SSL::SSLContext.new
+      @ssl_context.verify_mode = OpenSSL::SSL::VERIFY_NONE
+      
+      # Configure SSL context for maximum compatibility with ALL protocols
+      begin
+        if @ssl_context.respond_to?(:ssl_version=)
+          @ssl_context.ssl_version = :SSLv23_method rescue nil
+          @ssl_context.ssl_version = :TLS_method rescue nil
+        end
+        
+        if @ssl_context.respond_to?(:min_version=)
+          begin
+            @ssl_context.min_version = 0
+          rescue
+            if defined?(OpenSSL::SSL::SSL2_VERSION)
+              @ssl_context.min_version = OpenSSL::SSL::SSL2_VERSION rescue nil
+            elsif defined?(OpenSSL::SSL::SSL3_VERSION)
+              @ssl_context.min_version = OpenSSL::SSL::SSL3_VERSION rescue nil
+            end
+          end
+        end
+        
+        @ssl_context.options &= ~OpenSSL::SSL::OP_NO_SSLv2 if defined?(OpenSSL::SSL::OP_NO_SSLv2)
+        @ssl_context.options &= ~OpenSSL::SSL::OP_NO_SSLv3 if defined?(OpenSSL::SSL::OP_NO_SSLv3)
+        @ssl_context.options &= ~OpenSSL::SSL::OP_NO_TLSv1 if defined?(OpenSSL::SSL::OP_NO_TLSv1)
+      rescue => e
+        # Ignore errors from unsupported SSL options
+      end
 
       D "starting SSL for #{conn_address}:#{conn_port}..."
       s = OpenSSL::SSL::SSLSocket.new(s, @ssl_context)
       s.sync_close = true
-      D 'SSL established'
-    end
-
-    @socket = BufferedIO.new(s)
-    @socket.read_timeout = @read_timeout
-    @socket.continue_timeout = @continue_timeout
-    @socket.debug_output = @debug_output
-    if use_ssl?
+      
+      # Server Name Indication (SNI) RFC 3546
+      s.hostname = @address if s.respond_to? :hostname=
+      
       begin
-        if proxy?
-          buf = "CONNECT #{@address}:#{@port} HTTP/#{HTTPVersion}\r\n"
-          buf << "Host: #{@address}:#{@port}\r\n"
-
-          if proxy_user
-            credential = ["#{proxy_user}:#{proxy_pass}"].pack('m')
-            credential.delete!("\r\n")
-            buf << "Proxy-Authorization: Basic #{credential}\r\n"
-          end
-
-          buf << "\r\n"
-          @socket.write(buf)
-
-          # HTTPResponse.read_new(@socket).value
-          # added this
-          _x, raw = ExtendedHTTPResponse.read_new(@socket)
-          @raw << raw
-          # res = x.value
-          #
-        end
-
         if @ssl_session &&
            Process.clock_gettime(Process::CLOCK_REALTIME) < @ssl_session.time.to_f + @ssl_session.timeout
           s.session = @ssl_session if @ssl_session
         end
 
-        # Server Name Indication (SNI) RFC 3546
-        s.hostname = @address if s.respond_to? :hostname=
         Timeout.timeout(@open_timeout, Net::OpenTimeout) { s.connect }
         if @ssl_context.verify_mode != OpenSSL::SSL::VERIFY_NONE
           s.post_connection_check(@address)
         end
-
         @ssl_session = s.session
       rescue => exception
-        D "Conn close because of connect error #{exception}"
-        @socket.close if @socket && !@socket.closed?
+        D "Conn close because of SSL connect error #{exception}"
+        s.close if s && !s.closed?
         raise exception
       end
+
+      @socket = BufferedIO.new(s)
+      @socket.read_timeout = @read_timeout
+      @socket.continue_timeout = @continue_timeout
+      @socket.debug_output = @debug_output
+      D 'SSL established'
+    else
+      # Plain HTTP connection
+      @socket = BufferedIO.new(s)
+      @socket.read_timeout = @read_timeout
+      @socket.continue_timeout = @continue_timeout
+      @socket.debug_output = @debug_output
     end
 
     on_connect
