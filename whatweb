@@ -86,7 +86,8 @@ HTTP OPTIONS:
 AUTHENTICATION:
   --user, -u=<user:password>\tHTTP basic authentication.
   --cookie, -c=COOKIES\t\tUse cookies, e.g. 'name=value; name2=value2'.
-  --cookie-jar=FILE\t\tRead cookies from a file.
+  --cookie-jar=FILE\t\tRead cookies from a file and save cookies to the
+\t\t\t\tsame file. Creates the file if it doesn't exist.
   --no-cookies\t\t\tDisable automatic cookie handling (improves performance with high thread counts).
 
 PROXY:
@@ -308,6 +309,9 @@ url_pattern = nil
 max_threads = 25
 max_redirects = 10
 
+# Cookie jar file path
+cookie_jar_file = nil
+
 # optional arguments work badly with URLs
 opts = GetoptLong.new(
   ['-h', '--help', GetoptLong::NO_ARGUMENT],
@@ -523,11 +527,25 @@ begin
         raise('Cookie require a parameter, e.g. name=value; name2=value2')
       end
     when '--cookie-jar'
+      cookie_jar_file = arg
       begin
-        raise unless File.readable?(arg)
-        # Reads cookies in document.cookie format
-        # Permits empty lines and trailing spaces. Semicolons on the end of the line are optional.
-        $CUSTOM_HEADERS['Cookie'] = File.readlines(arg).delete_if { |line| line.strip =~ /^$/ }.map { |line| line.strip.sub(/([^;])$/, '\1;') }.join(' ')
+        if File.readable?(arg)
+          # Check if this is legacy format (single domain) for backward compatibility
+          lines = File.readlines(arg).map(&:strip)
+          
+          # If it's NOT the new domain-aware format, load as legacy cookies
+          unless lines.any? { |line| line.start_with?('# Domain:') }
+            # Legacy format - load into $CUSTOM_HEADERS for backward compatibility
+            cookie_lines = lines.delete_if { |line| line =~ /^$/ }
+            unless cookie_lines.empty?
+              $CUSTOM_HEADERS['Cookie'] = cookie_lines.map { |line| line.sub(/([^;])$/, '\1;') }.join(' ')
+            end
+          end
+          # Note: Domain-aware format is handled automatically by SimpleCookieJar.load_from_file
+        else
+          # File doesn't exist yet - that's OK, we'll create it when saving
+          # Just store the path for later use
+        end
       rescue
         raise("Could not read cookies from #{arg}.")
       end
@@ -609,7 +627,7 @@ $CUSTOM_HEADERS.delete_if { |_k, v| v == '' }
 ## Cookie Jar Initialization
 unless $NO_COOKIES
   require_relative 'lib/simple_cookie_jar'
-  $COOKIE_JAR = SimpleCookieJar.new(max_domains: 10_000)
+  $COOKIE_JAR = SimpleCookieJar.new(max_domains: 10_000, cookie_jar_file: cookie_jar_file)
   
   # Warn about performance implications
   check_cookie_performance_warning(max_threads)
@@ -657,6 +675,11 @@ scanner.scan do |target|
     logging_list: logging_list,
     grep_plugin: use_custom_grep_plugin
   )
+end
+
+# Save cookies to jar file if specified
+if defined?($COOKIE_JAR) && $COOKIE_JAR
+  $COOKIE_JAR.save_to_file
 end
 
 # close down logging and plugins

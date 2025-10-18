@@ -1,14 +1,31 @@
 require 'uri'
+require 'fileutils'
 
 # Simple thread-safe cookie jar for WhatWeb
 # Provides automatic cookie persistence across redirects with minimal complexity
+#
+# DESIGN PURPOSE:
+# This cookie jar is designed primarily for handling redirects and session persistence,
+# NOT for mass cookie collection. It maintains cookies during redirects and across
+# requests to the same domain to ensure proper web application scanning.
+#
+# LIMITATIONS:
+# - Max 10,000 domains by default (see max_domains parameter)
+# - Automatic cleanup removes oldest domains when limit is reached
+# - Memory usage grows with number of unique domains scanned
+# - For large-scale scans across many domains, use --no-cookies for better performance
+
 class SimpleCookieJar
-  def initialize(max_domains: 10_000)
+  def initialize(max_domains: 10_000, cookie_jar_file: nil)
     @cookies = {}           # domain -> cookie_string
     @mutex = Mutex.new      # Thread safety
     @max_domains = max_domains
     @cleanup_threshold = max_domains / 2
     @request_count = 0
+    @cookie_jar_file = cookie_jar_file
+    
+    # Load cookies from file if it exists
+    load_from_file if @cookie_jar_file
   end
 
   def add_cookies(set_cookie_header, url)
@@ -78,6 +95,76 @@ class SimpleCookieJar
         @cookies.each do |domain, cookies|
           debug("  #{domain}: #{cookies}") if defined?(debug)
         end
+      end
+    end
+  end
+
+  # Load cookies from the cookie jar file
+  def load_from_file
+    return unless @cookie_jar_file && File.readable?(@cookie_jar_file)
+    
+    begin
+      lines = File.readlines(@cookie_jar_file).map(&:strip)
+      return if lines.empty?
+      
+      # Check if this is the new domain-aware format
+      if lines.any? { |line| line.start_with?('# Domain:') }
+        # Parse domain-aware format
+        current_domain = nil
+        lines.each do |line|
+          if line.start_with?('# Domain:')
+            current_domain = line.sub(/^# Domain:\s*/, '')
+          elsif !line.empty? && !line.start_with?('#') && current_domain
+            # Store cookie for this domain
+            @cookies[current_domain] = line
+          end
+        end
+      else
+        # Legacy format - treat as single domain cookies
+        # These will be available via $CUSTOM_HEADERS['Cookie'] mechanism
+        # Don't load into @cookies since we don't know the domain
+      end
+      
+      debug("Loaded cookies for #{@cookies.size} domains from #{@cookie_jar_file}") if defined?(debug)
+    rescue => e
+      # Don't crash if loading fails, just warn
+      warning("Failed to load cookies from #{@cookie_jar_file}: #{e.message}") if defined?(warning)
+    end
+  end
+
+  # Save cookies to the cookie jar file
+  def save_to_file
+    return unless @cookie_jar_file
+    
+    @mutex.synchronize do
+      begin
+        # Create directory if it doesn't exist
+        dir = File.dirname(@cookie_jar_file)
+        FileUtils.mkdir_p(dir) unless Dir.exist?(dir)
+        
+        # Write cookies in domain-aware format
+        if @cookies.empty?
+          # Create empty file or clear existing file
+          File.write(@cookie_jar_file, "")
+        else
+          content = []
+          @cookies.each do |domain, cookie_string|
+            next if cookie_string.nil? || cookie_string.empty?
+            content << "# Domain: #{domain}"
+            content << cookie_string
+            content << "" # Empty line for readability
+          end
+          
+          # Remove trailing empty line and ensure final newline
+          content.pop if content.last == ""
+          cookie_content = content.join("\n") + "\n"
+          File.write(@cookie_jar_file, cookie_content)
+        end
+        
+        debug("Saved #{@cookies.size} domains with cookies to #{@cookie_jar_file}") if defined?(debug)
+      rescue => e
+        # Don't crash the program if cookie saving fails, just warn
+        warning("Failed to save cookies to #{@cookie_jar_file}: #{e.message}") if defined?(warning)
       end
     end
   end

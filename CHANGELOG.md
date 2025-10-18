@@ -1,10 +1,15 @@
 Version 0.6.3 - October 18, 2025
 
+## FEATURES
+* Improved scalable and performant cookie handling so that cookies are retained between redirects.
+* Added --no-cookies option to disable cookie handling.
+* Added --cookie-jar option to save cookies to a file.
+
 ## FIXES
 * Fix typo in plugin-tutorial-7.rb (@mtisec)
 
 ## MISC
-* 
+* Refactored messages, e.g. warning(), debug(), error() and notice() functions
 
 ## NEW PLUGINS
 * Cisco Meraki (John de Kroon @johndekroon)
