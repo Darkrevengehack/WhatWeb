@@ -102,7 +102,7 @@ module WhatWeb
       
       # Check if this URL or a very similar one is already in the queue
       if already_queued_or_processed?(normalized_url)
-        puts "[+] Skipping duplicate target: #{url} (already queued or similar)" if $verbose > 0
+        debug("Skipping duplicate target: #{url} (already queued or similar)")
         return
       end
       
@@ -192,7 +192,7 @@ module WhatWeb
       # read each line as a url, skipping lines that begin with a #
       inputfile = opts[:input_file] || nil
       if !inputfile.nil? && File.exist?(inputfile)
-        pp "loading input file: #{inputfile}" if $verbose > 2
+        debug("loading input file: #{inputfile}")
         consecutive_errors = 0
         total_lines = 0
         
@@ -267,7 +267,7 @@ module WhatWeb
               # add HTTP prefix to current target
               x.sub!(/^/, 'http://')
               # Provide informational message to user
-              puts "[+] Simple hostname detected: #{original_hostname}. Testing both HTTP and HTTPS." if $verbose > 0
+              debug("Simple hostname detected: #{original_hostname}. Testing both HTTP and HTTPS.")
             else
               # For more complex paths, just use HTTP prefix as before
               x.sub!(/^/, 'http://')

@@ -416,10 +416,10 @@ begin
       begin
         File.delete(arg)
       rescue
-        puts "File #{arg} already exists and cannot be removed"
+        warning("File #{arg} already exists and cannot be removed")
       end
       LoggingSQL.new(arg).create_tables
-      puts "SQL CREATE statements written to #{arg}"
+      notice("SQL CREATE statements written to #{arg}")
       exit
     when '--log-json'
       logging_list << LoggingJSON.new(arg)
@@ -577,7 +577,6 @@ rescue Errno::EPIPE
 rescue StandardError, GetoptLong::Error => e
   # Disable colours in Windows environments for errors in usage
   $use_colour = false if RbConfig::CONFIG['host_os'] =~ /mswin|mingw/
-  puts
   error("Error in processing commandline options - #{e}")
   error e.backtrace if $WWDEBUG
   exit
@@ -655,8 +654,8 @@ rescue SystemExit, Interrupt
   error 'Interrupted. Exiting...'
   exit 1
 rescue => e
-  puts e.message
-  puts e.backtrace
+  error(e.message)
+  error(e.backtrace.join("\n")) if $WWDEBUG
   exit 1
 end
 

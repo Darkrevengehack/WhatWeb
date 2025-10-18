@@ -58,7 +58,7 @@ end
 def match_ghdb(ghdb, body, _meta, _status, base_uri)
   # this could be made faster by creating code to eval once for each plugin
 
-  pp 'match_ghdb', ghdb if $verbose > 2
+  debug("match_ghdb: #{ghdb}")
 
   # take a GHDB string and turn it into code to be evaluated
   matches = [] # fill with true or false. succeeds if all true
@@ -96,7 +96,7 @@ def match_ghdb(ghdb, body, _meta, _status, base_uri)
 
   remaining_words = s.scan(/([^ "]+)|("[^"]+")/i).flatten.compact.each { |w| w.delete!('"') }.sort.uniq
 
-  pp 'Remaining GHDB words', remaining_words if $verbose > 2
+  debug("Remaining GHDB words: #{remaining_words}")
 
   remaining_words.each do |w|
     # does it start with a - ?
@@ -109,7 +109,7 @@ def match_ghdb(ghdb, body, _meta, _status, base_uri)
     end
   end
 
-  pp matches if $verbose > 2
+  debug("matches: #{matches}")
 
   # if all matcbhes are true, then true
   if matches.uniq == [true]
@@ -326,31 +326,32 @@ class Target
 
       req.basic_auth $BASIC_AUTH_USER, $BASIC_AUTH_PASS if $BASIC_AUTH_USER
 
-      # Log HTTP request details for verbose level 2 (-vv)
-      if $verbose >= 2
-        puts "\n" + "=" * 60
-        puts "HTTP REQUEST"
-        puts "=" * 60
-        puts "#{options[:method]} #{getthis} HTTP/1.1"
-        puts "Host: #{@uri.host}#{@uri.port != (@uri.scheme == 'https' ? 443 : 80) ? ":#{@uri.port}" : ''}"
-        
-        # Show custom headers
-        $CUSTOM_HEADERS.each do |key, value|
-          puts "#{key}: #{value}"
-        end
-        
-        # Show basic auth header if present
-        if $BASIC_AUTH_USER
-          puts "Authorization: Basic [REDACTED]"
-        end
-        
-        # Show POST data if present
-        if options[:method] == 'POST' && options[:data]
-          puts "\n[POST Data]"
-          puts options[:data].inspect
-        end
-        puts "=" * 60
+      # Log HTTP request details for debug mode
+      request_details = []
+      request_details << "\n" + "=" * 60
+      request_details << "HTTP REQUEST"
+      request_details << "=" * 60
+      request_details << "#{options[:method]} #{getthis} HTTP/1.1"
+      request_details << "Host: #{@uri.host}#{@uri.port != (@uri.scheme == 'https' ? 443 : 80) ? ":#{@uri.port}" : ''}"
+      
+      # Show custom headers
+      $CUSTOM_HEADERS.each do |key, value|
+        request_details << "#{key}: #{value}"
       end
+      
+      # Show basic auth header if present
+      if $BASIC_AUTH_USER
+        request_details << "Authorization: Basic [REDACTED]"
+      end
+      
+      # Show POST data if present
+      if options[:method] == 'POST' && options[:data]
+        request_details << "\n[POST Data]"
+        request_details << options[:data].inspect
+      end
+      request_details << "=" * 60
+      
+      debug(request_details.join("\n"))
 
       res = http.request(req)
       @raw_headers = http.raw.join("\n")
@@ -382,20 +383,21 @@ class Target
 
       @status = res.code.to_i
       
-      # Log HTTP response details for verbose level 2 (-vv)
-      if $verbose >= 2
-        puts "\nHTTP RESPONSE"
-        puts "=" * 60
-        puts "HTTP/1.1 #{@status} #{res.message}"
-        res.each_header do |key, value|
-          puts "#{key}: #{value}"
-        end
-        puts "=" * 60
-        puts "Response body length: #{@body ? @body.length : 0} bytes"
-        puts "=" * 60 + "\n"
+      # Log HTTP response details for debug mode
+      response_details = []
+      response_details << "\nHTTP RESPONSE"
+      response_details << "=" * 60
+      response_details << "HTTP/1.1 #{@status} #{res.message}"
+      res.each_header do |key, value|
+        response_details << "#{key}: #{value}"
       end
+      response_details << "=" * 60
+      response_details << "Response body length: #{@body ? @body.length : 0} bytes"
+      response_details << "=" * 60 + "\n"
       
-      puts @uri.to_s + " [#{status}]" if $verbose > 1
+      debug(response_details.join("\n"))
+      
+      debug("#{@uri} [#{status}]")
 
     rescue StandardError => err
       raise err

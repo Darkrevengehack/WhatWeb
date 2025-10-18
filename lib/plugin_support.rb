@@ -15,7 +15,6 @@
 # You should have received a copy of the GNU General Public License
 # along with WhatWeb.  If not, see <http://www.gnu.org/licenses/>.
 
-
 # this class contains stuff related to plugins but not necessary to repeat in each plugin we create
 class PluginSupport
   # this is used by load_plugins
@@ -166,7 +165,7 @@ class PluginSupport
     # report on plugins that couldn't be found
     unfound_plugins = selected_plugin_names - plugins_to_use.map { |n, _p| n.downcase }
     unless unfound_plugins.empty?
-      puts 'Error: The following plugins were not found: ' + unfound_plugins.join(',')
+      error("The following plugins were not found: #{unfound_plugins.join(',')}")
     end
 
     # puts "-" * 80
@@ -315,15 +314,11 @@ class PluginSupport
 
       puts 'Version:'.ljust(16) + (plugin.version || '<Not defined>')
       puts
-      print 'Features:'.ljust(16)
-
-      print "[#{plugin.matches.any? ? 'Yes' : 'No'}]".ljust(7) + 'Pattern Matching'
-
+      features_line = 'Features:'.ljust(16) + "[#{plugin.matches.any? ? 'Yes' : 'No'}]".ljust(7) + 'Pattern Matching'
       if plugin.matches.any?
-        puts " (#{plugin.matches.size})"
-      else
-        puts
+        features_line += " (#{plugin.matches.size})"
       end
+      puts features_line
 
       puts ' ' * 16 + "[#{plugin.version_detection? ? 'Yes' : 'No'}]".ljust(7) + 'Version detection from pattern matching'
       puts ' ' * 16 + "[#{plugin.passive ? 'Yes' : 'No'}]".ljust(7) + 'Function for passive matches'
@@ -333,13 +328,11 @@ class PluginSupport
       count[:passive] += 1 if plugin.passive
       count[:aggressive] += 1 if plugin.aggressive
 
-      print ' ' * 16 + "[#{plugin.dorks.any? ? 'Yes' : 'No'}]".ljust(7) + 'Google Dorks'
-      if plugin.dorks.empty?
-        puts
-      else
-        puts " (#{plugin.dorks.size})"
+      dorks_line = ' ' * 16 + "[#{plugin.dorks.any? ? 'Yes' : 'No'}]".ljust(7) + 'Google Dorks'
+      unless plugin.dorks.empty?
+        dorks_line += " (#{plugin.dorks.size})"
       end
-
+      puts dorks_line
       puts
 
       unless plugin.dorks.empty?
