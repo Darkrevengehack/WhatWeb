@@ -6,6 +6,7 @@ Version 0.6.3 - October 18, 2025
 * Added --cookie-jar option to save cookies to a file.
 
 ## FIXES
+* Fixed error with HTTPS connections when using a proxy server
 * Fix typo in plugin-tutorial-7.rb (@mtisec)
 
 ## MISC
