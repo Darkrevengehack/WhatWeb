@@ -7,9 +7,10 @@
 Plugin.define do
 name "Google-Analytics"
 authors [
-  "Peter van der Laan",
+  "Peter van der Laan", # v0.1
+  "spookycave" # v0.2 ippolito patterns
 ]
-version "0.1"
+version "0.2"
 description "This plugin identifies the Google Analytics account."
 website "http://www.google.com/analytics/"
 

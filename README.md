@@ -1,17 +1,15 @@
 [![License](https://img.shields.io/badge/license-GPLv2-brightgreen.svg)](https://raw.githubusercontent.com/urbanadventurer/whatweb/master/LICENSE) ![Stable Release](https://img.shields.io/badge/stable_release-0.6.2-blue.svg) ![WhatWeb Plugins](https://img.shields.io/badge/plugins-1824-brightgreen.svg) [![Repositories](https://repology.org/badge/tiny-repos/whatweb.svg)](https://repology.org/project/whatweb/versions)
 
-![logo](https://morningstarsecurity.com/wp-content/uploads/2019/02/WhatWeb-Logo-800px.png "WhatWeb Logo")
+![logo](https://github.com/user-attachments/assets/57950281-dec2-4132-a166-6387331bfd34 "WhatWeb Logo")
 
 # WhatWeb - Next generation web scanner
 Developed by Andrew Horton [urbanadventurer](https://github.com/urbanadventurer/) and Brendan Coles [bcoles](https://github.com/bcoles/)
 
-Latest Release: v0.6.2. August 25, 2025
+Latest Release: v0.6.3. October 18, 2025
 
 License: GPLv2
 
-This product is subject to the terms detailed in the license agreement. For more information about WhatWeb visit:
-
-Homepage: https://morningstarsecurity.com/research/whatweb
+This product is subject to the terms detailed in the license agreement. For more information about WhatWeb visit https://github.com/urbanadventurer/
 
 Wiki: https://github.com/urbanadventurer/WhatWeb/wiki/
 
@@ -534,6 +532,12 @@ Thank you to the following people who have contributed to WhatWeb.
 + Baptiste Fontaine (@bfontaine)
 + @definity
 + @huntertl
++ Michael Ippolito (@spookycave)
++ @mkauschi
++ @frapava98
++ John de Kroon (@johndekroon)
++ @mtisec
+
 
 It is difficult to keep track of all the people who have contributed to WhatWeb. If your name is missing then please let me know.
 

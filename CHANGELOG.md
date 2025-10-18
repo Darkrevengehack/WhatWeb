@@ -1,3 +1,23 @@
+Version 0.6.3 - October 18, 2025
+
+## FIXES
+* Fix typo in plugin-tutorial-7.rb (@mtisec)
+
+## MISC
+* 
+
+## NEW PLUGINS
+* Cisco Meraki (John de Kroon @johndekroon)
+* GoAnywhere Web Client (@frapava98)
+* Oracle EBS (@frapava98)
+* Google Tag Manager (Michael Ippolito @spookycave)
+
+## PLUGIN UPDATES
+* Cisco-Adaptive-Security-Appliance (@frapava98)
+* JQuery (added another version pattern) (@mkauschi)
+* Google Analytics (Michael Ippolito @spookycave)
+
+
 Version 0.6.2 - August 25, 2025
 
 Changelog:

@@ -12,8 +12,9 @@ authors [
   # v0.3 # rewrite. 
   "Eric Sesterhenn", # v0.4 # added another match line
   "Janosch Maier @Phylu", # v0.5 # 2018-04-20 # added a version detection.
+  "mkauschi" # v0.6 # 2021-10-21 # added a version 
 ]
-version "0.5"
+version "0.6"
 description "A fast, concise, JavaScript that simplifies how to traverse HTML documents, handle events, perform animations, and add AJAX."
 website "http://jquery.com/"
 
@@ -27,7 +28,7 @@ matches [
 { :version=>/jquery(\.min)?\.js\?ver=([0-9\.]+)['"]/, :offset=>1 },
 { :version=>/jquery\/([0-9\.]+)\/jquery(\.min)?\.js/, :offset=>0 },
 { :version=>/jquery-([0-9\.]+)(\.min)?\.js/, :offset=>0 },
-{ :version=>/jquery(\.min)?\.js(\.[a-z&=;\?]*)(\?|;)(v|ver)=([0-9\.]+)['"]/, :offset=>4 },
+{ :version=>/jquery(\.min)?\.js(\.[a-z&=;\?]*)(\?|;)(v|ver)=([0-9\.]+)['"]/, :offset=>5 },
 
 ]
 

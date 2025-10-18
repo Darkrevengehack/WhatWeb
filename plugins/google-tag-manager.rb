@@ -7,7 +7,7 @@
 Plugin.define do
 name "Google-Tag-Manager"
 authors [
-  "Michael Ippolito"
+  "Michael Ippolito" # v0.1 @spookycave 
 ]
 version "0.1"
 description "This plugin identifies Google Tag Manager."
