@@ -20,15 +20,76 @@ class Logging
 
   # if no f, output to STDOUT,
   # if f is a filename then open it, if f is a file use it
-  def initialize(f = STDOUT)
+  def initialize(f = STDOUT, sync: nil)
     f = STDOUT if f == '-'
     @f = f if f.class == IO || f.class == File
     @f = File.open(f, 'a') if f.class == String
-    @f.sync = true # we want flushed output
+    
+    # Make sync configurable with smart defaults
+    # Default to sync for low thread counts, async for high thread counts
+    if sync.nil?
+      @f.sync = ($THREADS && $THREADS <= 5) ? true : false
+    else
+      @f.sync = sync
+    end
+    
+    # Per-instance mutex for thread-safe output
+    @mutex = Mutex.new
+    
+    # Output buffering for performance
+    @buffer = []
+    @buffer_size = $OUTPUT_BUFFER_SIZE || 1
+    @last_flush = Time.now
+    
+    # Ensure buffer size is at least 1
+    @buffer_size = 1 if @buffer_size < 1
   end
 
   def close
+    flush_buffer # Ensure all buffered output is written
     @f.close unless @f.class == IO
+  end
+
+  # Thread-safe output method using per-instance mutex
+  def synchronized_write(&block)
+    @mutex.synchronize(&block)
+  end
+  
+  # Buffered output method for improved performance
+  def buffered_write(content)
+    @mutex.synchronize do
+      @buffer << content
+      
+      # Flush buffer if it's full, in sync mode, or buffer is getting stale
+      should_flush = @buffer.size >= @buffer_size || 
+                     @f.sync || 
+                     (Time.now - @last_flush > 5.0 && !@buffer.empty?)
+      
+      if should_flush
+        flush_buffer_unsafe
+      end
+    end
+  end
+  
+  # Force flush the buffer (thread-safe)
+  def flush_buffer
+    @mutex.synchronize do
+      flush_buffer_unsafe
+    end
+  end
+  
+  private
+  
+  # Flush buffer without mutex (must be called within synchronized block)
+  def flush_buffer_unsafe
+    return if @buffer.empty?
+    
+    # Join all buffered content with newlines and write as one block
+    combined_output = @buffer.join("\n")
+    @f.puts combined_output
+    
+    @buffer.clear
+    @last_flush = Time.now
   end
 
   # perform sort, uniq and join on each plugin result

@@ -1,9 +1,22 @@
+Version 0.6.4 - ??
+
+
+
 Version 0.6.3 - October 18, 2025
 
 ## FEATURES
 * Improved scalable and performant cookie handling so that cookies are retained between redirects.
 * Added --no-cookies option to disable cookie handling.
 * Added --cookie-jar option to save cookies to a file.
+
+## PERFORMANCE IMPROVEMENTS
+* Replaced global output mutex with per-logger mutexes for better concurrency
+* Removed excessive STDERR.flush calls that were causing I/O bottlenecks  
+* Optimized verbose logging to build output atomically before writing
+* Added configurable output buffering for high-thread scenarios
+* Made output sync behavior configurable (--output-sync flag)
+* Added smart defaults that automatically optimize based on thread count
+* Added profiling infrastructure (WHATWEB_PROFILE environment variable)
 
 ## FIXES
 * Fixed error with HTTPS connections when using a proxy server

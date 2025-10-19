@@ -42,7 +42,7 @@ Most WhatWeb plugins are thorough and recognise a range of cues from subtle to o
 ### Features
 * Over 1800 plugins
 * Control the trade off between speed/stealth and reliability
-* Performance tuning. Control how many websites to scan concurrently.
+* Performance tuning. Control how many websites to scan concurrently with automatic output optimization.
 * Multiple log formats: Brief (greppable), Verbose (human readable), XML, JSON, MagicTree, RubyObject, MongoDB, ElasticSearch, SQL.
 * Proxy support including TOR
 * Custom HTTP headers
@@ -358,8 +358,72 @@ WhatWeb features several options to increase performance and stability.
 *  --read-timeout        Time in seconds. Default: 30
 *  --wait=SECONDS        Wait SECONDS between connections
                         This is useful when using a single thread.
+*  --output-sync         Force immediate output flushing to screen and logs for 
+                        real-time monitoring (slower with high thread counts).
+*  --output-buffer-size=SIZE  Set output buffer size for screen and log output. 
+                        0=unbuffered, default=auto based on thread count.
 
 The --wait and --max-threads commands can be used to assist in IDS evasion.
+
+### Output Performance Optimization
+
+WhatWeb automatically optimizes output performance for both screen output and log files based on thread count:
+
+* **Low thread counts (1-5)**: 
+  - **Sync**: Enabled (immediate flushing)
+  - **Buffer size**: 1 (minimal buffering for real-time output)
+  - **Use case**: Interactive scanning, real-time monitoring
+
+* **Medium thread counts (6-50)**: 
+  - **Sync**: Disabled (async I/O)
+  - **Buffer size**: 10 (small buffer for balanced performance)
+  - **Use case**: Standard batch scanning including default (25 threads)
+
+* **High thread counts (51+)**: 
+  - **Sync**: Disabled (async I/O)
+  - **Buffer size**: 25 (larger buffer to minimize I/O contention)
+  - **Use case**: High-volume scanning, large target lists (100+ threads)
+
+You can override these defaults for both screen output and log files:
+
+```bash
+# Force real-time output to screen and logs (slower but immediate)
+./whatweb --output-sync -t 100 --log-brief=results.txt targets.txt
+
+# Custom buffer size for high-volume logging
+./whatweb --output-buffer-size=50 -t 100 --log-verbose=detailed.log targets.txt
+
+# Disable buffering entirely for immediate file writes
+./whatweb --output-buffer-size=0 -t 10 --log-json=results.json targets.txt
+```
+
+These optimizations apply to all output formats including brief, verbose, XML, JSON, and other log formats.
+
+#### Technical Details
+
+**Output Sync Behavior:**
+- **Enabled**: Each output line is immediately flushed to disk/screen (slower but real-time)
+- **Disabled**: Output is buffered in memory before writing (faster but delayed)
+
+**Buffer Size Impact:**
+- **Size 1**: Minimal buffering, nearly immediate output
+- **Size 10**: Small buffer holds ~10 results before writing
+- **Size 25+**: Larger buffer reduces I/O system calls for better performance
+- **Size 0**: Completely unbuffered (equivalent to sync enabled)
+
+### Profiling Support
+
+Enable performance profiling to identify bottlenecks:
+
+```bash
+# Basic profiling to stderr
+WHATWEB_PROFILE=1 ./whatweb -t 25 targets.txt
+
+# Save profile to file
+WHATWEB_PROFILE=1 WHATWEB_PROFILE_FILE=profile.txt ./whatweb -t 25 targets.txt
+```
+
+*Note: Profiling requires the `ruby-prof` gem: `gem install ruby-prof`*
 
 Changing the user-agent using the -U or --user-agent command line option will avoid the Snort IDS rule for WhatWeb.
 

@@ -34,6 +34,27 @@
 
 $LOAD_PATH.unshift(File.join(File.expand_path(__dir__)), '.')
 
+# Performance profiling infrastructure (Phase 1)
+if ENV['WHATWEB_PROFILE']
+  begin
+    require 'ruby-prof'
+    RubyProf.start
+    at_exit do
+      result = RubyProf.stop
+      printer = RubyProf::FlatPrinter.new(result)
+      if ENV['WHATWEB_PROFILE_FILE']
+        File.open(ENV['WHATWEB_PROFILE_FILE'], 'w') { |f| printer.print(f) }
+        STDERR.puts "Profile saved to #{ENV['WHATWEB_PROFILE_FILE']}"
+      else
+        printer.print(STDERR)
+      end
+    end
+    STDERR.puts "Ruby profiling enabled"
+  rescue LoadError
+    STDERR.puts "Warning: ruby-prof gem not available. Install with: gem install ruby-prof"
+  end
+end
+
 require 'lib/whatweb'
 
 #
@@ -156,6 +177,10 @@ PERFORMANCE & STABILITY:
   --read-timeout\t\tTime in seconds. Default: #{$HTTP_READ_TIMEOUT}.
   --wait=SECONDS\t\tWait SECONDS between connections.
 \t\t\t\tThis is useful when using a single thread.
+  --output-sync\t\t\tForce immediate output flushing for real-time
+\t\t\t\tmonitoring (slower with high thread counts).
+  --output-buffer-size=SIZE\tSet output buffer size. 0=unbuffered,
+\t\t\t\tdefault=auto based on thread count.
 
 HELP & MISCELLANEOUS:
   --short-help\t\t\tShort usage help.
@@ -363,7 +388,9 @@ opts = GetoptLong.new(
   ['--wait', GetoptLong::REQUIRED_ARGUMENT],
   ['--debug', GetoptLong::NO_ARGUMENT],
   ['--version', GetoptLong::NO_ARGUMENT],
-  ['-q', '--quiet', GetoptLong::NO_ARGUMENT]
+  ['-q', '--quiet', GetoptLong::NO_ARGUMENT],
+  ['--output-sync', GetoptLong::NO_ARGUMENT],
+  ['--output-buffer-size', GetoptLong::REQUIRED_ARGUMENT]
 )
 
 begin
@@ -570,6 +597,10 @@ begin
     when '--version'
       puts "WhatWeb version #{WhatWeb::VERSION} ( https://morningstarsecurity.com/research/whatweb/ )"
       exit
+    when '--output-sync'
+      $OUTPUT_SYNC = true
+    when '--output-buffer-size'
+      $OUTPUT_BUFFER_SIZE = arg.to_i
     end
   end
 rescue Errno::EPIPE
@@ -602,10 +633,26 @@ end
 # optimise plugins
 PluginSupport.precompile_regular_expressions
 
+# Store thread count globally for logging classes (before creating loggers)
+$THREADS = max_threads
+
+# Configure smart defaults for output performance based on thread count
+unless defined?($OUTPUT_SYNC)
+  $OUTPUT_SYNC = (max_threads <= 5)  # Sync for low thread counts
+end
+
+unless defined?($OUTPUT_BUFFER_SIZE)
+  $OUTPUT_BUFFER_SIZE = case max_threads
+                        when 1..5 then 1      # No buffering for low threads
+                        when 6..50 then 10    # Small buffer for medium (includes default 25)
+                        else 25               # Larger buffer for high threads (51+)
+                        end
+end
+
 ### OUTPUT
-logging_list << LoggingBrief.new unless $QUIET || $verbose > 0 # by default logging brief
+logging_list << LoggingBrief.new(STDOUT, sync: $OUTPUT_SYNC) unless $QUIET || $verbose > 0 # by default logging brief
 logging_list << LoggingObject.new if $verbose > 1 # full logging if -vv
-logging_list << LoggingVerbose.new if $verbose > 0 # full logging if -v
+logging_list << LoggingVerbose.new(STDOUT, sync: $OUTPUT_SYNC) if $verbose > 0 # full logging if -v
 
 ## logging dependencies
 if mongo[:use_mongo_log]
@@ -633,7 +680,6 @@ unless $NO_COOKIES
 end
 
 urls = ARGV
-
 
 # Initialize Scanner
 begin
