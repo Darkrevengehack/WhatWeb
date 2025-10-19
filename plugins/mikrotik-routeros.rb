@@ -8,8 +8,9 @@ Plugin.define do
 name "MikroTik-RouterOS"
 authors [
   "Brendan Coles <bcoles@gmail.com>", # 2011-08-07
+  "John de Kroon <john.de.kroon@cyberant.com", # 2025-10-18
 ]
-version "0.1"
+version "0.2"
 description "RouterOS is the operating system used on the MikroTik RouterBOARD series of routers. It can also be installed on a PC and will turn it into a router with all the necessary features - routing, firewall, bandwidth management, wireless access point, backhaul link, hotspot gateway, VPN server and more."
 website "http://www.mikrotik.com/software.html & http://www.routerboard.com/"
 
@@ -28,7 +29,7 @@ matches [
 
 # webfig
 { :url=>"/webfig/iframe.html", :text=>'<body onload="parent.generateContent(parent.location.hash.substr(1));">' },
-
+{ :text=>'<h1>RouterOS</h1>' },
 ]
 
 # Passive #
