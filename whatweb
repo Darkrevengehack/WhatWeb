@@ -311,7 +311,7 @@ end
 #
 
 # Plugins
-plugin_selection = nil
+plugin_selection = ""
 use_custom_plugin = false
 use_custom_grep_plugin = false
 

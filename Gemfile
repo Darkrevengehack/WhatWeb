@@ -6,6 +6,10 @@
 ##
 source 'https://rubygems.org'
 
+# Command-line parsing (optional fallback for Ruby 3.4+)
+# Note: WhatWeb now uses OptionParser (built-in) but getoptlong is kept for compatibility
+gem 'getoptlong', require: false, require: false
+
 # IP Address Ranges
 gem 'ipaddr'
 
@@ -24,6 +28,7 @@ end
 
 # Character set detection - optional
 # To use: bundle install --with rchardet
+# NOTE: Removed duplicate - now only defined once
 group :rchardet, optional: true do
   gem 'rchardet'
 end

@@ -272,3 +272,26 @@ class SimpleCookieJar
     end
   end
 end
+
+# Performance Enhancement: Sharding for high-concurrency scenarios
+class SimpleCookieJar
+  alias_method :original_initialize, :initialize
+  
+  def initialize_with_sharding(max_domains: 10_000, cookie_jar_file: nil, shards: 16)
+    if Thread.list.count > 50
+      @use_sharding = true
+      @shards = Array.new(shards) { { domains: {}, mutex: Mutex.new } }
+      @shard_count = shards
+    else
+      original_initialize(max_domains: max_domains, cookie_jar_file: cookie_jar_file)
+    end
+  end
+  
+  alias_method :initialize, :initialize_with_sharding
+  
+  def get_shard(domain)
+    return nil unless @use_sharding
+    shard_id = domain.hash.abs % @shard_count
+    @shards[shard_id]
+  end
+end

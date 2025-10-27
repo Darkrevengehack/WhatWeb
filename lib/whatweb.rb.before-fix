@@ -24,7 +24,6 @@ require 'optparse'
 require 'net/http'
 require 'open-uri'
 require 'cgi'
-require_relative 'uri_helper'
 require 'thread'
 require 'rbconfig' # detect environment, e.g. windows or linux
 require 'resolv'
@@ -32,11 +31,7 @@ require 'resolv-replace' # asynchronous DNS
 require 'digest/md5'
 require 'openssl' # required for Ruby version ~> 2.4
 require 'pp'
-require_relative 'encoding_helper'
 require 'set'
-require_relative 'performance_monitor' rescue nil
-require_relative 'error_handler'
-require_relative 'windows_compat'
 
 # WhatWeb libs
 require_relative 'whatweb/version.rb'
@@ -164,9 +159,3 @@ $load_path_plugins = [
   File.expand_path('../', __dir__),
   "/usr/share/whatweb" # location Makefile installs into, also used in Kali
 ].freeze
-
-# Populate PLUGIN_DIRS from $load_path_plugins
-$load_path_plugins.each do |base_path|
-  plugin_path = File.join(base_path, 'plugins')
-  PLUGIN_DIRS << plugin_path if File.directory?(plugin_path)
-end
