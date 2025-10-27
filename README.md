@@ -127,7 +127,7 @@ GPLv2 - Same as original WhatWeb
 ## 🙏 Credits
 
 - **Original Authors:** [Andrew Horton](https://github.com/urbanadventurer) and [Brendan Coles](https://github.com/bcoles)
-- **Fork Maintainer:** [Your Name/Username]
+- **Fork Maintainer:** [Darkrevengehack]
 - **Contributors:** See [CONTRIBUTORS.md](CONTRIBUTORS.md)
 
 ## 🔗 Links
