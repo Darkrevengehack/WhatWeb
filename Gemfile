@@ -8,7 +8,7 @@ source 'https://rubygems.org'
 
 # Command-line parsing (optional fallback for Ruby 3.4+)
 # Note: WhatWeb now uses OptionParser (built-in) but getoptlong is kept for compatibility
-gem 'getoptlong', require: false, require: false
+gem 'getoptlong', require: false
 
 # IP Address Ranges
 gem 'ipaddr'
@@ -23,7 +23,6 @@ gem 'json'
 # To use: bundle install --with mongo
 group :mongo, optional: true do
   gem 'mongo'
-  gem 'rchardet'
 end
 
 # Character set detection - optional
