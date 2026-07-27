@@ -15,7 +15,7 @@ GEM
     erb (6.0.1.1)
     getoptlong (0.2.1)
     ipaddr (1.2.7)
-    json (2.15.2.1)
+    json (2.19.9)
     language_server-protocol (3.17.0.5)
     lint_roller (1.1.0)
     method_source (1.1.0)
